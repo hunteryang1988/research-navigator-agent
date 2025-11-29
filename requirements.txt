@@ -1,0 +1,33 @@
+# Core dependencies
+langchain>=0.3.0,<0.4.0
+langchain-community>=0.3.0,<0.4.0
+langchain-openai>=0.2.0,<0.3.0
+langgraph>=0.2.0,<0.3.0
+
+# Explicit aiohttp version to avoid conflicts
+aiohttp>=3.8.3,<4.0.0
+
+# Vector store
+faiss-cpu>=1.8.0,<2.0.0
+
+# External search
+tavily-python>=0.5.0
+
+# OpenAI API
+openai>=1.50.0
+httpx[socks]>=0.27.0
+
+# Configuration
+python-dotenv>=1.0.0,<2.0.0
+pydantic>=2.0.0,<3.0.0
+pydantic-settings>=2.0.0,<3.0.0
+
+# CLI
+typer>=0.12.0,<1.0.0
+rich>=13.0.0,<14.0.0
+
+# Development dependencies (optional)
+# pytest>=8.0.0
+# pytest-asyncio>=0.23.0
+# black>=24.0.0
+# ruff>=0.6.0
