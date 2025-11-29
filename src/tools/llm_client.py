@@ -214,16 +214,59 @@ class LLMClient:
             for call in context.get("tool_calls", [])
         )
 
-        # Build context description
+        # Build context description with actual content previews
         context_desc = []
-        if internal_done:
-            num_internal = len(context.get("internal_context", []))
-            context_desc.append(f"- Internal KB: {num_internal} sources retrieved")
-        if external_done:
-            num_external = len(context.get("external_context", []))
-            context_desc.append(f"- Web search: {num_external} sources retrieved")
 
-        context_str = "\n".join(context_desc) if context_desc else "- No sources retrieved yet"
+        # Show KB path and document list if available
+        kb_path = context.get("kb_path")
+        if kb_path:
+            from pathlib import Path
+            kb_path_obj = Path(kb_path)
+            context_desc.append(f"- Knowledge base available at: {kb_path}")
+
+            # List documents in KB to help LLM understand topic area
+            if kb_path_obj.exists():
+                doc_files = []
+                for ext in ['*.md', '*.txt', '*.pdf']:
+                    doc_files.extend(kb_path_obj.rglob(ext))
+
+                if doc_files:
+                    # Show first few filenames to indicate topic
+                    file_names = [f.name for f in doc_files[:10]]
+                    context_desc.append(f"  Documents in KB: {', '.join(file_names)}")
+                    if len(doc_files) > 10:
+                        context_desc.append(f"  (and {len(doc_files) - 10} more documents)")
+                else:
+                    context_desc.append(f"  (KB directory is empty or contains no .md/.txt/.pdf files)")
+
+        # Show internal search results with content preview
+        if internal_done:
+            internal_sources = context.get("internal_context", [])
+            num_internal = len(internal_sources)
+            if num_internal > 0:
+                # Show first result preview so LLM can judge relevance
+                first_preview = internal_sources[0][:200] + "..." if internal_sources else ""
+                context_desc.append(f"- Internal KB search completed: {num_internal} sources retrieved")
+                context_desc.append(f"  Preview of first result: {first_preview}")
+            else:
+                context_desc.append(f"- Internal KB search completed: No relevant results found")
+
+        # Show web search results with content preview
+        if external_done:
+            external_sources = context.get("external_context", [])
+            num_external = len(external_sources)
+            if num_external > 0:
+                # Show first few results with title and content preview
+                first_result = external_sources[0]
+                title = first_result.get('title', 'Untitled')
+                content = first_result.get('content', '')[:150]
+                context_desc.append(f"- Web search COMPLETED: {num_external} sources retrieved")
+                context_desc.append(f"  Sample result: '{title}'")
+                context_desc.append(f"  Content preview: {content}...")
+            else:
+                context_desc.append(f"- Web search completed: No results found")
+
+        context_str = "\n".join(context_desc) if context_desc else "- No searches performed yet"
 
         prompt = f"""You are a research agent that helps answer questions by using available tools.
 
@@ -236,8 +279,8 @@ class LLMClient:
 {', '.join(available_tools)}
 
 **Available Actions:**
-- search_internal: Search the internal knowledge base (local documents)
-- web_search: Search the web for current information
+- search_internal: Search the internal knowledge base (local documents about specific topics)
+- web_search: Search the web for current information, people, events, or topics not in KB
 - finish: Generate final answer when you have enough information
 
 **Your Task:**
@@ -247,11 +290,35 @@ THOUGHT: [Your reasoning about what to do next]
 ACTION: [One of: search_internal, web_search, finish]
 ACTION_INPUT: [The query to use for the action]
 
-**Guidelines:**
-1. Use search_internal first if available and not already used
-2. Use web_search for current events, recent information, or if internal search insufficient
-3. Use finish when you have gathered sufficient context from available sources
-4. Keep thought concise and focused
+**CRITICAL DECISION RULES (follow in order):**
+
+1. **CHECK IF ALREADY DONE**: Look at "Current Context" above
+   - If web_search COMPLETED with results → USE FINISH (don't search again!)
+   - If search_internal COMPLETED with results → check if relevant
+
+2. **EVALUATE WHAT YOU HAVE**:
+   - Read the content previews shown above
+   - If results answer the query → USE FINISH immediately
+   - If results are irrelevant (e.g., quantum docs for person query) → try other tool
+
+3. **AVOID WASTED SEARCHES**:
+   - NEVER use search_internal OR web_search if that tool already returned results
+   - Repeating the same search wastes time and money
+   - If you have ANY relevant results, proceed to FINISH
+
+4. **TOOL SELECTION** (only if no searches done yet):
+   - Look at "Knowledge base available at:" and "Documents in KB:" listed above
+   - Read the document filenames to understand what topics the KB covers
+   - Ask yourself: "Does my query match the topics covered in these documents?"
+   - Examples:
+     * Query "who is John Doe?" + KB contains "quantum_computing.md, classical_computing.md" → NO MATCH → use web_search
+     * Query "what is quantum entanglement?" + KB contains "quantum_computing.md" → LIKELY MATCH → use search_internal
+     * Query "latest news 2024" + any KB → NO MATCH (needs current info) → use web_search
+     * Query "explain neural networks" + KB contains "deep_learning.md, neural_nets.md" → MATCH → use search_internal
+   - Use your reasoning: match query topic to document names, don't search KB for clearly unrelated topics
+
+**REMEMBER**: If you see "Web search COMPLETED: X sources" or "Internal KB search completed: X sources"
+in Current Context above, you MUST use ACTION: finish (not search again).
 
 Now, what should we do next?"""
 
