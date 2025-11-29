@@ -96,7 +96,7 @@ class LLMClient:
                 model=self.settings.llm_model,
                 messages=messages,
                 temperature=temperature,
-                max_tokens=max_tokens,
+                max_completion_tokens=max_tokens,  # Use max_completion_tokens instead of max_tokens for newer models
                 stop=stop_sequences,
             )
 
