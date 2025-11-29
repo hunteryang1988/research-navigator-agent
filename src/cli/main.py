@@ -176,10 +176,10 @@ def version():
     Display version information.
     """
     console.print("[bold cyan]Research Navigator Agent[/bold cyan]")
-    console.print("Version: 0.1.0 (Phase 3 - RAG + Web Search)")
+    console.print("Version: 1.0.0 (Phase 4 - Full ReAct Loop)")
     console.print("Framework: LangGraph + LangChain")
-    console.print("LLM: OpenAI gpt-5-mini")
-    console.print("Search: Internal (FAISS) + External (Tavily)")
+    console.print("Features: LLM Reasoning + RAG + Web Search + Synthesis")
+    console.print("Status: ✅ Production Ready")
 
 
 if __name__ == "__main__":
